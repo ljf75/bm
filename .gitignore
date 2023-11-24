@@ -1,5 +1,5 @@
 /bme
 /basm
 /debasm
-/examples/123.bm
-/examples/fib.bm
+./examples/123.bm
+./examples/fib.bm
