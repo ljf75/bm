@@ -7,7 +7,7 @@ Birtual Machine for [Elisp](https://github.com/tsoding/elisp)
 ```console
 $ make -B
 $ make examples
-$ ./bmi ./examples/fib.bm
+$ ./bme -i ./examples/fib.bm -l 69
 ```
 
 ## Components
