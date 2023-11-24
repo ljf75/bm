@@ -1,9 +1,7 @@
 #define BM_IMPLEMENTATION
 #include "./bm.h"
 
-//Bm bm = {0};
-
-int main(int argc, char *argv[]) 
+int main(int argc, char **argv) 
 {
    if (argc < 2) {
       fprintf(stderr, "Usage: ./debasm <input.bm>\n");
@@ -20,10 +18,10 @@ int main(int argc, char *argv[])
         printf("nop\n");
         break;
       case  INST_PUSH:   
-        printf("push %d\n", bm.program[i].operand);
+        printf("push %ld\n", bm.program[i].operand);
         break;
       case   INST_DUP:
-        printf("dup %d\n", bm.program[i].operand);
+        printf("dup %ld\n", bm.program[i].operand);
         break;
       case   INST_PLUS:
         printf("plus\n");
@@ -38,10 +36,10 @@ int main(int argc, char *argv[])
         printf("div\n");
         break;
       case  INST_JMP:
-        printf("jmp %d\n", bm.program[i].operand);
+        printf("jmp %ld\n", bm.program[i].operand);
         break;
       case  INST_JMP_IF:
-        printf("jmp_if %d\n", bm.program[i].operand);
+        printf("jmp_if %ld\n", bm.program[i].operand);
         break;
       case  INST_EQ:
         printf("eq\n");

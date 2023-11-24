@@ -12,7 +12,6 @@
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
 #define BM_PROGRAM_CAPACITY 1024
-#define  BM_EXECUTION_LIMIT 69
 
 typedef enum {
   TRAP_OK = 0,
@@ -106,6 +105,23 @@ const char *inst_type_as_cstr(INST_Type type)
 #define MAKE_INST_JMP(addr) {.type = INST_JMP, .operand = (addr)}
 #define MAKE_INST_DUP(addr) {.type = INST_DUP, .operand = (addr)}
 #define MAKE_INST_HALT {.type = INST_JMP, .operand = (addr)}
+
+Trap bm_execute_inst(Bm *bm);
+void bm_dump_stack(FILE *stream, const Bm *bm);
+
+Trap bm_execute_program(Bm *bm, int limit)
+{
+  while (limit != 0 && !bm->halt) {
+    Trap trap = bm_execute_inst(bm);
+    if (trap != TRAP_OK) {
+      return trap;
+    }
+    if (limit > 0) {
+      --limit;
+    }
+  }
+  return TRAP_OK;
+}
 
 Trap bm_execute_inst(Bm *bm) 
 {

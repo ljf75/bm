@@ -2,8 +2,4 @@
 /basm
 /debasm
 /examples/123.bm
-<<<<<<< HEAD
 /examples/fib.bm
-=======
-/examples/fib.bm
->>>>>>> 414f053 (rm binary file)
