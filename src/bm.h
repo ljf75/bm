@@ -1,3 +1,6 @@
+#ifndef _BM_H_
+#define _BM_H_
+
 #include<assert.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -287,7 +290,7 @@ void bm_load_program_from_file(Bm *bm, const char *file_path)
   fclose(f);
 }
 
-void bm_save_program_to_file(Inst *program, size_t program_size, const char *file_path)
+void bm_save_program_to_file(const Bm *bm, const char *file_path)
 {
   FILE *f = fopen(file_path, "wb");
   if (f == NULL) {
@@ -295,7 +298,7 @@ void bm_save_program_to_file(Inst *program, size_t program_size, const char *fil
     exit(1);
   }
 
-  fwrite(program, sizeof(program[0]), program_size, f);
+  fwrite(bm->program, sizeof(bm->program[0]), bm->program_size, f);
 
   if (ferror(f)) {
     fprintf(stderr, "ERROR: could not write to file %s : %s\n", file_path, strerror(errno));
@@ -476,3 +479,5 @@ String_View slurp_file(const char *file_path)
     .data = buffer,
   };
 }
+
+#endif // __BM_H_

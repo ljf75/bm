@@ -1,4 +1,4 @@
-#include "./bm.c"
+#include "./bm.h"
 
 int main(int argc, char **argv) 
 {

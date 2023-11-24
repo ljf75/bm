@@ -2,19 +2,25 @@ CFLAGS=-Wall -Wextra -Wswitch-enum -std=c11 -pedantic
 LIBS=
 
 .PHONY: all
-all: ebasm bmi
+all: basm bme debasm
 
-ebasm: ./src/ebasm.c ./src/bm.c
-	$(CC) $(CFLAGS) -o ebasm ./src/ebasm.c $(LIBS)
+basm: ./src/basm.c ./src/bm.h
+	$(CC) $(CFLAGS) -o basm ./src/basm.c $(LIBS)
 
-bmi: ./src/bmi.c ./src/bm.c
-	$(CC) $(CFLAGS) -o bmi ./src/bmi.c $(LIBS)
+bme: ./src/bme.c ./src/bm.h
+	$(CC) $(CFLAGS) -o bme ./src/bme.c $(LIBS)
+
+debasm: ./src/debasm.c ./src/bm.h
+	$(CC) $(CFLAGS) -o debasm ./src/debasm.c $(LIBS)
+
 
 .PHONY: examples
 examples: ./examples/fib.bm ./examples/123.bm
 
-./examples/fib.bm: ./examples/fib.ebasm
-	./ebasm ./examples/fib.ebasm ./examples/fib.bm
+./examples/fib.bm: ./examples/fib.basm
+	./basm ./examples/fib.basm ./examples/fib.bm
 
 ./examples/123.bm: 
-	./ebasm ./examples/123.ebasm ./examples/123.bm
+	./basm ./examples/123.basm ./examples/123.bm
+clear:
+	rm basm bme ./examples/*bm debasm

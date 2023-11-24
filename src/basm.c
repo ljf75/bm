@@ -1,8 +1,8 @@
-#include "./bm.c"
+#include "./bm.h"
 
 int main(int argc, char **argv) {
   if (argc < 3) {
-    fprintf(stderr, "./bm <input.ebasm> <output.bm>\n");
+    fprintf(stderr, "./bm <input.basm> <output.bm>\n");
     fprintf(stderr, "ERROR: expected input and output\n");
     exit(1);
   }
@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
 
   bm.program_size = bm_translate_source(source,bm.program,BM_PROGRAM_CAPACITY);
 
-  bm_save_program_to_file(bm.program, bm.program_size, output_file_path);
+  bm_save_program_to_file(&bm, output_file_path);
 
   return 0;
 }
