@@ -1,7 +1,7 @@
 #define BM_IMPLEMENTATION
 #include "./bm.h"
 
-char *shift(int *argc, char ***argv)
+static char *shift(int *argc, char ***argv)
 {
    assert(*argc > 0);
    char *result = **argv;
@@ -10,7 +10,7 @@ char *shift(int *argc, char ***argv)
    return result;
 }
 
-void usage(FILE *stream, const char *program)
+static void usage(FILE *stream, const char *program)
 {
   fprintf(stream, "Usage: %s -i <input.bm> [-l <limit>] [-h]\n", program);
 }

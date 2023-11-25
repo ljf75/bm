@@ -13,7 +13,7 @@
 #define BM_STACK_CAPACITY 1024
 #define BM_PROGRAM_CAPACITY 1024
 #define LABEL_CAPACITY 1024
-#define UNRESOLVED_JMPS_CAPACITY 1024
+#define DEFERED_OPERANDS_CAPACITY 1024
 
 #define MAKE_INST_PUSH(value) {.type = INST_PUSH, .operand = (value)}
 #define MAKE_INST_PLUS {.type = INST_PLUS}
@@ -76,9 +76,26 @@ typedef struct
   const char *data;
 } String_View;
 
-Trap bm_execute_inst(Bm *bm);
-void bm_dump_stack(FILE *stream, const Bm *bm);
+int sv_eq(String_View a, String_View b);
+int sv_to_int(String_View sv);
 
+const char *trap_as_cstr(Trap trap);
+const char *inst_type_as_cstr(INST_Type type);
+
+Trap bm_execute_inst(Bm *bm);
+Trap bm_execute_program(Bm *bm, int limit);
+
+void bm_dump_stack(FILE *stream, const Bm *bm);
+void bm_load_program_from_memory(Bm *bm, Inst *program, size_t program_size);
+void bm_load_program_from_file(Bm *bm, const char *file_path);
+void bm_save_program_to_file(const Bm *bm, const char *file_path);
+
+String_View cstr_as_sv(const char *cstr);
+String_View sv_trim_left(String_View sv);
+String_View sv_trim_right(String_View sv);
+String_View sv_trim(String_View sv);
+String_View sv_chop_by_delim(String_View *sv, char delim);
+String_View sv_slurp_file(const char *file_path);
 
 typedef struct {
   String_View name;
@@ -86,22 +103,22 @@ typedef struct {
 } Label;
 
 typedef struct {
-  Word addr;
+  Word addr; 
   String_View label;
-} Unresolved_Jmp;
+} Defered_Operand;
 
 typedef struct {
   Label labels[LABEL_CAPACITY];
   size_t labels_size;
-  Unresolved_Jmp unresolved_jmps[UNRESOLVED_JMPS_CAPACITY];
-  size_t unresolved_jmps_size;
-} Label_Table;
+  Defered_Operand defered_operands[DEFERED_OPERANDS_CAPACITY];
+  size_t defered_operands_size;
+} Basm;
 
-Word label_table_find(const Label_Table *llt, String_View name);
-void label_table_push(Label_Table *lt, String_View name, Word addr);
-void label_table_push_unresolved_jmp(Label_Table *lt, Word addr, String_View label);
+Word basm_find_label_addr(const Basm *llt, String_View name);
+void basm_push_label(Basm *lt, String_View name, Word addr);
+void basm_push_defered_operand(Basm *lt, Word addr, String_View label);
 
-void bm_translate_source(String_View source, Bm *bm, Label_Table *lt);
+void bm_translate_source(String_View source, Bm *bm, Basm *lt);
 
 #endif // __BM_H_
 
@@ -128,8 +145,6 @@ const char *trap_as_cstr(Trap trap)
           assert(0 && "trap_as_cstr: Unreachable");
   }
 }
-
-
 
 const char *inst_type_as_cstr(INST_Type type)
 {
@@ -448,7 +463,7 @@ int sv_to_int(String_View sv)
   return result;
 }
 
-Word label_table_find(const Label_Table *lt, String_View name)
+Word basm_find_label_addr(const Basm *lt, String_View name)
 {
     for (size_t i = 0; i < lt->labels_size; ++i) {
       if (sv_eq(lt->labels[i].name, name)) {
@@ -459,20 +474,20 @@ Word label_table_find(const Label_Table *lt, String_View name)
     exit(1);
 }
 
-void label_table_push(Label_Table *lt, String_View name, Word addr)
+void basm_push_label(Basm *lt, String_View name, Word addr)
 {
   assert(lt->labels_size < LABEL_CAPACITY);
   lt->labels[lt->labels_size++] = (Label) {.name = name, .addr = addr};
 }
 
-void label_table_push_unresolved_jmp(Label_Table *lt, Word addr, String_View label)
+void basm_push_defered_operand(Basm *lt, Word addr, String_View label)
 {
-  assert(lt->unresolved_jmps_size < UNRESOLVED_JMPS_CAPACITY);
-  lt->unresolved_jmps[lt->unresolved_jmps_size++] =    
-      (Unresolved_Jmp) {.addr = addr, .label = label};
+  assert(lt->defered_operands_size < DEFERED_OPERANDS_CAPACITY);
+  lt->defered_operands[lt->defered_operands_size++] =    
+      (Defered_Operand) {.addr = addr, .label = label};
 }
 
-void bm_translate_source(String_View source, Bm *bm, Label_Table *lt)
+void bm_translate_source(String_View source, Bm *bm, Basm *lt)
 {
    bm->program_size = 0;
 
@@ -489,7 +504,7 @@ void bm_translate_source(String_View source, Bm *bm, Label_Table *lt)
              .data = inst_name.data,
           };
 
-          label_table_push(lt, label, bm->program_size);
+          basm_push_label(lt, label, bm->program_size);
           
           inst_name = sv_trim(sv_chop_by_delim(&line, ' '));
         } 
@@ -522,7 +537,7 @@ void bm_translate_source(String_View source, Bm *bm, Label_Table *lt)
                   .operand = sv_to_int(operand),
                 };
               } else {
-                label_table_push_unresolved_jmp(
+                basm_push_defered_operand(
                   lt, bm->program_size, operand);
 
                 bm->program[bm->program_size++] =(Inst) {  
@@ -537,10 +552,10 @@ void bm_translate_source(String_View source, Bm *bm, Label_Table *lt)
      }
    }
     // Second pass
-    for (size_t i = 0; i < lt->unresolved_jmps_size; ++i) {
+    for (size_t i = 0; i < lt->defered_operands_size; ++i) {
 
-        Word addr = label_table_find(lt,lt->unresolved_jmps[i].label);
-        bm->program[lt->unresolved_jmps[i].addr].operand = addr;
+        Word addr = basm_find_label_addr(lt,lt->defered_operands[i].label);
+        bm->program[lt->defered_operands[i].addr].operand = addr;
 
     }
 }
