@@ -12,6 +12,17 @@
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
 #define BM_PROGRAM_CAPACITY 1024
+#define LABEL_CAPACITY 1024
+#define UNRESOLVED_JMPS_CAPACITY 1024
+
+#define MAKE_INST_PUSH(value) {.type = INST_PUSH, .operand = (value)}
+#define MAKE_INST_PLUS {.type = INST_PLUS}
+#define MAKE_INST_MINUS {.type = INST_MINUS}
+#define MAKE_INST_MULT {.type = INST_MULT}
+#define MAKE_INST_DIV {.type = INST_DIV}
+#define MAKE_INST_JMP(addr) {.type = INST_JMP, .operand = (addr)}
+#define MAKE_INST_DUP(addr) {.type = INST_DUP, .operand = (addr)}
+#define MAKE_INST_HALT {.type = INST_JMP, .operand = (addr)}
 
 typedef enum {
   TRAP_OK = 0,
@@ -22,28 +33,6 @@ typedef enum {
   TRAP_ILLEGAL_OPERAND,
   TRAP_DIV_BY_ZERO,
 } Trap;
-
-const char *trap_as_cstr(Trap trap)
-{
-  switch (trap) {
-      case TRAP_OK:
-          return "TRAP_OK";
-      case TRAP_STACK_OVERFLOW:
-          return "TRAP_STACK_OVERFLOW";
-      case TRAP_STACK_UNDERFLOW:
-          return "TRAP_STACK_UNDERFLOW";
-      case TRAP_ILLEGAL_INST:
-          return "TRAP_ILLEGAL_INST";
-      case TRAP_ILLEGAL_INST_ACCESS:
-          return "TRAP_ILLEGAL_INST_ACCESS";
-      case TRAP_ILLEGAL_OPERAND:
-          return "TRAP_ILLEGAL_OPERAND";
-      case TRAP_DIV_BY_ZERO:
-          return "TRAP_DIV_BY_ZERO";
-      default:
-          assert(0 && "trap_as_cstr: Unreachable");
-  }
-}
 
 typedef int64_t Word;
 
@@ -78,6 +67,70 @@ typedef struct {
    int halt;
 } Bm;
 
+
+Bm bm = {0};
+
+typedef struct 
+{
+  size_t count;
+  const char *data;
+} String_View;
+
+Trap bm_execute_inst(Bm *bm);
+void bm_dump_stack(FILE *stream, const Bm *bm);
+
+
+typedef struct {
+  String_View name;
+  Word addr;
+} Label;
+
+typedef struct {
+  Word addr;
+  String_View label;
+} Unresolved_Jmp;
+
+typedef struct {
+  Label labels[LABEL_CAPACITY];
+  size_t labels_size;
+  Unresolved_Jmp unresolved_jmps[UNRESOLVED_JMPS_CAPACITY];
+  size_t unresolved_jmps_size;
+} Label_Table;
+
+Word label_table_find(const Label_Table *llt, String_View name);
+void label_table_push(Label_Table *lt, String_View name, Word addr);
+void label_table_push_unresolved_jmp(Label_Table *lt, Word addr, String_View label);
+
+void bm_translate_source(String_View source, Bm *bm, Label_Table *lt);
+
+#endif // __BM_H_
+
+#ifdef BM_IMPLEMENTATION
+
+const char *trap_as_cstr(Trap trap)
+{
+  switch (trap) {
+      case TRAP_OK:
+          return "TRAP_OK";
+      case TRAP_STACK_OVERFLOW:
+          return "TRAP_STACK_OVERFLOW";
+      case TRAP_STACK_UNDERFLOW:
+          return "TRAP_STACK_UNDERFLOW";
+      case TRAP_ILLEGAL_INST:
+          return "TRAP_ILLEGAL_INST";
+      case TRAP_ILLEGAL_INST_ACCESS:
+          return "TRAP_ILLEGAL_INST_ACCESS";
+      case TRAP_ILLEGAL_OPERAND:
+          return "TRAP_ILLEGAL_OPERAND";
+      case TRAP_DIV_BY_ZERO:
+          return "TRAP_DIV_BY_ZERO";
+      default:
+          assert(0 && "trap_as_cstr: Unreachable");
+  }
+}
+
+
+
 const char *inst_type_as_cstr(INST_Type type)
 {
    switch(type) {
@@ -97,17 +150,7 @@ const char *inst_type_as_cstr(INST_Type type)
    }
 }
 
-#define MAKE_INST_PUSH(value) {.type = INST_PUSH, .operand = (value)}
-#define MAKE_INST_PLUS {.type = INST_PLUS}
-#define MAKE_INST_MINUS {.type = INST_MINUS}
-#define MAKE_INST_MULT {.type = INST_MULT}
-#define MAKE_INST_DIV {.type = INST_DIV}
-#define MAKE_INST_JMP(addr) {.type = INST_JMP, .operand = (addr)}
-#define MAKE_INST_DUP(addr) {.type = INST_DUP, .operand = (addr)}
-#define MAKE_INST_HALT {.type = INST_JMP, .operand = (addr)}
 
-Trap bm_execute_inst(Bm *bm);
-void bm_dump_stack(FILE *stream, const Bm *bm);
 
 Trap bm_execute_program(Bm *bm, int limit)
 {
@@ -324,14 +367,6 @@ void bm_save_program_to_file(const Bm *bm, const char *file_path)
   fclose(f);
 }
 
-Bm bm = {0};
-
-typedef struct 
-{
-  size_t count;
-  const char *data;
-} String_View;
-
 String_View cstr_as_sv(const char *cstr)
 {
   return (String_View) {
@@ -413,44 +448,86 @@ int sv_to_int(String_View sv)
   return result;
 }
 
-Inst bm_translate_line(String_View line)
+Word label_table_find(const Label_Table *lt, String_View name)
 {
-   line = sv_trim_left(line);
-   String_View inst_name = sv_chop_by_delim(&line, ' ');
-   String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
-
-   if (sv_eq(inst_name, cstr_as_sv("push"))) {
-      line = sv_trim_left(line);
-      return (Inst) {.type = INST_PUSH, .operand = sv_to_int(operand)};
-   } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
-     line = sv_trim_left(line);
-     return (Inst) {.type = INST_DUP, .operand = sv_to_int(operand)};
-   } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
-      return (Inst) {.type = INST_PLUS};
-   } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
-         return (Inst) {.type = INST_JMP, .operand = sv_to_int(operand)};
+    for (size_t i = 0; i < lt->labels_size; ++i) {
+      if (sv_eq(lt->labels[i].name, name)) {
+         return lt->labels[i].addr;
       }
-   else {
-     fprintf(stderr, "ERROR: unknown unstruction `%.*s`", (int) inst_name.count, inst_name.data);
-     exit(1);
-   }
+    }
+    fprintf(stderr, "ERROR: label `%.*s` does not exist\n", (int) name.count, name.data);
+    exit(1);
 }
 
-size_t bm_translate_source(String_View source, 
-Inst *program, size_t program_capacity)
+void label_table_push(Label_Table *lt, String_View name, Word addr)
 {
-   size_t program_size = 0;
+  assert(lt->labels_size < LABEL_CAPACITY);
+  lt->labels[lt->labels_size++] = (Label) {.name = name, .addr = addr};
+}
+
+void label_table_push_unresolved_jmp(Label_Table *lt, Word addr, String_View label)
+{
+  assert(lt->unresolved_jmps_size < UNRESOLVED_JMPS_CAPACITY);
+  lt->unresolved_jmps[lt->unresolved_jmps_size++] =    
+      (Unresolved_Jmp) {.addr = addr, .label = label};
+}
+
+void bm_translate_source(String_View source, Bm *bm, Label_Table *lt)
+{
+   bm->program_size = 0;
+
+   // First pass
    while (source.count > 0) {
-     assert(program_size < program_capacity);
+     assert(bm->program_size < BM_PROGRAM_CAPACITY);
      String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
      if (line.count > 0 && *line.data != '#') {
-        program[program_size++] = bm_translate_line(line);
+        String_View inst_name = sv_chop_by_delim(&line, ' ');
+        String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
+
+        if (inst_name.count > 0 && inst_name.data[inst_name.count - 1] == ':') {
+          String_View label = {
+             .count = inst_name.count - 1,
+             .data = inst_name.data,
+          };
+
+          label_table_push(lt, label, bm->program_size);
+        } else if (sv_eq(inst_name, cstr_as_sv("push"))) {
+           bm->program[bm->program_size++] = (Inst) {
+             .type = INST_PUSH, 
+             .operand = sv_to_int(operand)
+           };
+        } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
+          bm->program[bm->program_size++] = (Inst) { 
+            .type = INST_DUP, 
+            .operand = sv_to_int(operand)
+          };
+        } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
+          bm->program[bm->program_size++] = (Inst) { 
+            .type = INST_PLUS
+          };
+        } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
+          label_table_push_unresolved_jmp(
+            lt, bm->program_size, operand);
+          
+          bm->program[bm->program_size++] =(Inst) {  
+            .type = INST_JMP
+          };
+        } else {
+          fprintf(stderr, "ERROR: unknown unstruction `%.*s`", (int) inst_name.count, inst_name.data);
+          exit(1);
+        }
      }
    }
-   return program_size;
+    // Second pass
+    for (size_t i = 0; i < lt->unresolved_jmps_size; ++i) {
+
+        Word addr = label_table_find(lt,lt->unresolved_jmps[i].label);
+        bm->program[lt->unresolved_jmps[i].addr].operand = addr;
+
+    }
 }
 
-String_View slurp_file(const char *file_path)
+String_View sv_slurp_file(const char *file_path)
 {
   FILE *f = fopen(file_path, "r");
   if (f == NULL) {
@@ -494,4 +571,4 @@ String_View slurp_file(const char *file_path)
   };
 }
 
-#endif // __BM_H_
+#endif// BM_IMPLEMENTATION

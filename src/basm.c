@@ -1,6 +1,8 @@
 #define BM_IMPLEMENTATION
 #include "./bm.h"
 
+Label_Table lt = {0};
+
 char *shift(int *argc, char ***argv)
 {
    assert(*argc > 0);
@@ -36,9 +38,9 @@ int main(int argc, char **argv)
   
   const char *output_file_path = shift(&argc, &argv);
 
-  String_View source = slurp_file(input_file_path);
+  String_View source = sv_slurp_file(input_file_path);
 
-  bm.program_size = bm_translate_source(source,bm.program,BM_PROGRAM_CAPACITY);
+  bm_translate_source(source, &bm, &lt);
 
   bm_save_program_to_file(&bm, output_file_path);
 

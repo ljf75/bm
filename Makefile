@@ -24,3 +24,13 @@ examples: ./examples/fib.bm ./examples/123.bm
 	./basm ./examples/123.basm ./examples/123.bm
 clear:
 	rm basm bme ./examples/*bm debasm
+
+test:
+	# produce binary file
+	./basm ./examples/fib.basm  ./examples/fib.bm
+	
+	# look up binary file
+	./debasm ./examples/fib.bm
+	
+	# execute binary file
+	./bme -i ./examples/fib.bm  -l 69 
