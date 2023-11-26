@@ -3,7 +3,7 @@ CC=cc
 LIBS=
 
 .PHONY: all
-all: basm bme debasm
+all: basm bme debasm nan
 
 basm: ./src/basm.c ./src/bm.h
 	$(CC) $(CFLAGS) -o basm ./src/basm.c $(LIBS)
@@ -13,6 +13,9 @@ bme: ./src/bme.c ./src/bm.h
 
 debasm: ./src/debasm.c ./src/bm.h
 	$(CC) $(CFLAGS) -o debasm ./src/debasm.c $(LIBS)
+
+nan: ./src/nan.c
+	$(CC) $(CFLAGS) -o nan ./src/nan.c $(LIBS)
 
 
 .PHONY: examples
