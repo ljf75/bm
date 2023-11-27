@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -std=c11 -pedantic
+CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes  -pedantic -std=c11
 CC=cc
 LIBS=
 
@@ -16,17 +16,22 @@ debasm: ./src/debasm.c ./src/bm.h
 
 
 .PHONY: examples
-examples: ./examples/fib.bm ./examples/123.bm
+examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm
 
-./examples/fib.bm: ./examples/fib.basm
+./examples/fib.bm: 
 	./basm ./examples/fib.basm ./examples/fib.bm
 
-./examples/123.bm: 
+./examples/123.bm:
 	./basm ./examples/123.basm ./examples/123.bm
-clear:
-	rm basm bme ./examples/*bm debasm
 
-test:
+./examples/123f.bm:
+	./basm ./examples/123f.basm ./examples/123f.bm
+
+
+clear:
+	rm  ./examples/*bm
+
+test1:
 	# produce binary file
 	./basm ./examples/fib.basm  ./examples/fib.bm
 	
@@ -34,4 +39,14 @@ test:
 	./debasm ./examples/fib.bm
 	
 	# execute binary file
-	./bme -i ./examples/fib.bm  -l 69 
+	./bme -i ./examples/fib.bm  -l 69
+
+test2:
+	# produce binary file
+	./basm ./examples/123f.basm  ./examples/123f.bm
+	
+	# look up binary file
+	./debasm ./examples/123f.bm
+	
+	# execute binary file
+	./bme -i ./examples/123f.bm  -l 69 
