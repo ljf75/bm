@@ -12,7 +12,7 @@ static char *shift(int *argc, char ***argv)
 
 static void usage(FILE *stream, const char *program)
 {
-  fprintf(stream, "Usage: %s -i <input.bm> [-l <limit>] [-h]\n", program);
+  fprintf(stream, "Usage: %s -i <input.bm> [-l <limit>] [-h] [-d]\n", program);
 }
 
 int main(int argc, char **argv) 
@@ -20,6 +20,7 @@ int main(int argc, char **argv)
  const char *program = shift(&argc, &argv);
  const char *input_file_path = NULL;
  int limit = -1;
+ int debug = 0;
 
   while (argc > 0) {
     const char *flag = shift(&argc, &argv);
@@ -41,8 +42,9 @@ int main(int argc, char **argv)
     }  else if (strcmp(flag, "-h") == 0) {
       usage(stdout, program);
       exit(0);
-    }
-    else {
+    } else if(strcmp(flag, "-d") == 0) {
+      debug = 1;
+    }  else {
        usage(stderr, program);
        fprintf(stderr, "ERROR: Unknown flag `%s`\n", flag);
        exit(1);
@@ -54,15 +56,32 @@ int main(int argc, char **argv)
        fprintf(stderr, "ERROR: input was not provided\n");
        exit(1);
   }
-
+  
   bm_load_program_from_file(&bm, input_file_path);
-  Trap trap = bm_execute_program(&bm, limit);
-  bm_dump_stack(stdout, &bm);
 
-  if (trap != TRAP_OK) {
-    fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));
-    return 1;
+  if (!debug) {
+    Trap trap = bm_execute_program(&bm, limit);
+    bm_dump_stack(stdout, &bm);
+
+    if (trap != TRAP_OK) {
+      fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));
+      return 1;
+    }
+  } else {
+      while (limit != 0 && !bm.halt) {
+        bm_dump_stack(stdout, &bm);
+        getchar();
+        Trap trap = bm_execute_inst(&bm);
+        if (trap != TRAP_OK) {
+            fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));
+            return 1;
+        }
+        if (limit > 0) {
+          --limit;
+        }
+      }
   }
+
 
   return 0;
 }
