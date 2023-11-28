@@ -55,6 +55,7 @@ typedef enum {
     INST_NOT,
     INST_GEF,
     INST_RET,
+    INST_CALL,
     INST_PRINT_DEBUG,
     NUMBER_OF_INSTS,
 } INST_Type;
@@ -171,6 +172,7 @@ int inst_has_operand(INST_Type type)
        case INST_NOT:  return 0;
        case INST_GEF:  return 0;
        case INST_RET: return 0;
+       case INST_CALL: return 1;
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_has_operand: unreachable");
   }
@@ -200,6 +202,7 @@ const char *inst_name(INST_Type type)
        case INST_GEF: return "gef";
        case INST_DROP: return "drop";
        case INST_RET: return "ret";
+       case INST_CALL: return "call";
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_name: unreachable");
   }
@@ -251,6 +254,7 @@ const char *inst_type_as_cstr(INST_Type type)
      case INST_GEF: return "INST_GEF";
      case INST_DROP: return "INST_DROP";
      case INST_RET: return "INST_RET";
+     case INST_CALL: return "INST_CALL";
      case NUMBER_OF_INSTS: 
      default: assert(0 && "trap_as_cstr: Unreachable");
    }
@@ -395,7 +399,15 @@ Trap bm_execute_inst(Bm *bm)
       bm->ip = bm->stack[bm->stack_size - 1].as_u64;
       bm->stack_size -= 1;
       break;
-  
+
+    case INST_CALL:
+      if (bm->stack_size >= BM_STACK_CAPACITY) {
+        return TRAP_STACK_UNDERFLOW;
+      }
+      bm->stack[bm->stack_size + 1].as_u64 = bm->ip;
+      bm->ip = inst.operand.as_u64;
+      break;
+    
     case INST_HALT:
       bm->halt = 1;
       break;
@@ -771,9 +783,23 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
                    lt, bm->program_size, operand);
 
                  bm->program[bm->program_size++] =(Inst) {  
-                   .type = INST_JMP_IF
+                   .type = INST_JMP_IF,
                  };
                }
+             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_CALL)))) {
+              if (operand.count > 0 && isdigit(*operand.data)) {
+                bm->program[bm->program_size++] =(Inst) {  
+                  .type = INST_CALL,
+                  .operand = {.as_i64 = sv_to_int(operand)}
+                };
+              } else {
+                basm_push_defered_operand(
+                  lt, bm->program_size, operand);
+
+                bm->program[bm->program_size++] =(Inst) {  
+                  .type = INST_CALL,
+                };
+              }
             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_HALT)))) {
              bm->program[bm->program_size++] =(Inst) {  
                .type = INST_HALT
@@ -781,6 +807,10 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
              } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSF)))) {
              bm->program[bm->program_size++] = (Inst) { 
                     .type = INST_PLUSF
+                  };
+             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_MINUSF)))) {
+                bm->program[bm->program_size++] = (Inst) { 
+                       .type = INST_MINUSF
                   };
              } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DIVF)))) {
           bm->program[bm->program_size++] = (Inst) { 
