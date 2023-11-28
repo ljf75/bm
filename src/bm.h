@@ -790,7 +790,7 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
               if (operand.count > 0 && isdigit(*operand.data)) {
                 bm->program[bm->program_size++] =(Inst) {  
                   .type = INST_CALL,
-                  .operand = {.as_i64 = sv_to_int(operand)}
+                  .operand = {.as_i64 = sv_to_int(operand)},
                 };
               } else {
                 basm_push_defered_operand(

@@ -16,7 +16,7 @@ debasm: ./src/debasm.c ./src/bm.h
 
 
 .PHONY: examples
-examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm
+examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm ./examples/pi.bm 
 
 ./examples/fib.bm: basm ./examples/fib.bm
 	./basm ./examples/fib.basm ./examples/fib.bm
@@ -29,3 +29,6 @@ examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm
 
 ./examples/e.bm: basm ./examples/e.bm
 	./basm ./examples/e.basm ./examples/e.bm
+
+./examples/pi.bm: basm ./examples/pi.bm
+	./basm ./examples/pi.basm ./examples/pi.bm
