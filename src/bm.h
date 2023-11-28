@@ -38,6 +38,7 @@ typedef enum {
     INST_NOP = 0,
     INST_PUSH,
     INST_DUP,
+    INST_DROP,
     INST_SWAP,
     INST_PLUSI,
     INST_MINUSI,
@@ -53,6 +54,7 @@ typedef enum {
     INST_HALT,
     INST_NOT,
     INST_GEF,
+    INST_RET,
     INST_PRINT_DEBUG,
     NUMBER_OF_INSTS,
 } INST_Type;
@@ -151,6 +153,7 @@ int inst_has_operand(INST_Type type)
        case INST_NOP: return 0;
        case INST_PUSH: return 1;
        case INST_DUP: return 1;
+       case INST_DROP: return 0;
        case INST_PLUSI: return  0;
        case INST_MINUSI: return 0;
        case INST_MULTI: return 0;
@@ -167,6 +170,7 @@ int inst_has_operand(INST_Type type)
        case INST_SWAP:   return 1;
        case INST_NOT:  return 0;
        case INST_GEF:  return 0;
+       case INST_RET: return 0;
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_has_operand: unreachable");
   }
@@ -194,6 +198,8 @@ const char *inst_name(INST_Type type)
        case INST_SWAP:  return "swap";
        case INST_NOT: return "not";
        case INST_GEF: return "gef";
+       case INST_DROP: return "drop";
+       case INST_RET: return "ret";
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_name: unreachable");
   }
@@ -243,12 +249,12 @@ const char *inst_type_as_cstr(INST_Type type)
      case INST_SWAP: return "INST_SWAP";
      case INST_NOT: return "INST_NOT";
      case INST_GEF: return "INST_GEF";
+     case INST_DROP: return "INST_DROP";
+     case INST_RET: return "INST_RET";
      case NUMBER_OF_INSTS: 
      default: assert(0 && "trap_as_cstr: Unreachable");
    }
 }
-
-
 
 Trap bm_execute_program(Bm *bm, int limit)
 {
@@ -285,6 +291,15 @@ Trap bm_execute_inst(Bm *bm)
        bm->ip += 1;
        break; 
 
+    case INST_DROP:
+       if (bm->stack_size >= BM_STACK_CAPACITY) {
+          return TRAP_STACK_OVERFLOW;
+       }
+
+       bm->stack_size -= 1;
+       bm->ip += 1;
+       break; 
+    
     case INST_PLUSI:
        if (bm->stack_size < 2) {
          return TRAP_STACK_UNDERFLOW;
@@ -372,6 +387,15 @@ Trap bm_execute_inst(Bm *bm)
       bm->ip = inst.operand.as_u64;
       break;
 
+    case INST_RET:
+      if (bm->stack_size < 1) {
+        return TRAP_STACK_UNDERFLOW;
+      }
+
+      bm->ip = bm->stack[bm->stack_size - 1].as_u64;
+      bm->stack_size -= 1;
+      break;
+  
     case INST_HALT:
       bm->halt = 1;
       break;
@@ -399,16 +423,16 @@ Trap bm_execute_inst(Bm *bm)
        bm->stack_size -= 1;
        bm->ip += 1;
       break;
-    
+      
     case INST_GEF:
-    if (bm->stack_size < 2) {
-       return TRAP_STACK_UNDERFLOW;
-     }
-
-    bm->stack[bm->stack_size - 2].as_f64 =  bm->stack[bm->stack_size - 1].as_f64 >=  bm->stack[bm->stack_size - 2].as_f64;
-     bm->stack_size -= 1;
-     bm->ip += 1;
-    break;
+      if (bm->stack_size < 2) {
+         return TRAP_STACK_UNDERFLOW;
+       }
+  
+      bm->stack[bm->stack_size - 2].as_f64 =  bm->stack[bm->stack_size - 1].as_f64 >=  bm->stack[bm->stack_size - 2].as_f64;
+       bm->stack_size -= 1;
+       bm->ip += 1;
+      break;
     
     case INST_PRINT_DEBUG:
       if (bm->stack_size < 2) {
@@ -718,6 +742,10 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
               bm->program[bm->program_size++] = (Inst) { 
                 .type = INST_PLUSI
               };
+            }  else if (sv_eq(token, cstr_as_sv(inst_name(INST_MINUSI)))) {
+              bm->program[bm->program_size++] = (Inst) { 
+                .type = INST_MINUSI
+              };
             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_JMP)))) {
               if (operand.count > 0 && isdigit(*operand.data)) {
                 bm->program[bm->program_size++] =(Inst) {  
@@ -771,6 +799,14 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
              bm->program[bm->program_size++] = (Inst) { 
                     .type = INST_EQ,
                };
+             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DROP)))) {
+                bm->program[bm->program_size++] = (Inst) { 
+                       .type = INST_DROP,
+               };
+             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_RET)))) {
+               bm->program[bm->program_size++] = (Inst) { 
+                      .type = INST_RET,
+              };
              } else if (sv_eq(token, cstr_as_sv(inst_name(INST_GEF)))) {
                 bm->program[bm->program_size++] = (Inst) { 
                        .type = INST_GEF,
