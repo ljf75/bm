@@ -404,7 +404,7 @@ Trap bm_execute_inst(Bm *bm)
       if (bm->stack_size >= BM_STACK_CAPACITY) {
         return TRAP_STACK_UNDERFLOW;
       }
-      bm->stack[bm->stack_size + 1].as_u64 = bm->ip;
+      bm->stack[bm->stack_size + 1].as_u64 = bm->ip + 1;
       bm->ip = inst.operand.as_u64;
       break;
     

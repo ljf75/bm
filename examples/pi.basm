@@ -22,7 +22,7 @@ loop:
   swap 3
   
   divf
-  minusf
+  plusf
 
   swap 2
   push 1
