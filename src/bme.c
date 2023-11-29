@@ -26,6 +26,18 @@ static Trap bm_alloc(Bm *bm)
   return TRAP_OK;
 }
 
+static Trap bm_free(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+  
+  free(bm->stack[bm->stack_size - 1].as_ptr);
+  bm->stack_size -= 1;
+
+  return TRAP_OK;
+}
+
 int main(int argc, char **argv) 
 {
  const char *program = shift(&argc, &argv);
@@ -70,6 +82,8 @@ int main(int argc, char **argv)
   
   bm_load_program_from_file(&bm, input_file_path);
   bm_push_native(&bm, bm_alloc);
+  bm_push_native(&bm, bm_free);
+
 
   if (!debug) {
     Trap trap = bm_execute_program(&bm, limit);
@@ -82,6 +96,7 @@ int main(int argc, char **argv)
   } else {
       while (limit != 0 && !bm.halt) {
         bm_dump_stack(stdout, &bm);
+        printf("%s %" PRIu64  "\n", inst_name(bm.program[bm.ip].type), bm.program[bm.ip].operand.as_u64);
         getchar();
         Trap trap = bm_execute_inst(&bm);
         if (trap != TRAP_OK) {

@@ -8,6 +8,7 @@
 #include<string.h>
 #include<errno.h>
 #include<ctype.h>
+#include<inttypes.h>
 
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
@@ -418,6 +419,14 @@ Trap bm_execute_inst(Bm *bm)
       }
       bm->stack[bm->stack_size++].as_u64 = bm->ip + 1;
       bm->ip = inst.operand.as_u64;
+      break;
+
+    case INST_NATIVE:
+      if (inst.operand.as_u64 > bm->natives_size) {
+        return TRAP_ILLEGAL_OPERAND;
+      }
+      bm->natives[inst.operand.as_u64](bm);
+      bm->ip += 1;
       break;
     
     case INST_HALT:
@@ -867,6 +876,11 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
                bm->program[bm->program_size++] = (Inst) { 
                       .type = INST_PRINT_DEBUG,
                 };
+             } else if (sv_eq(token, cstr_as_sv(inst_name(INST_NATIVE)))) {
+             bm->program[bm->program_size++] = (Inst) { 
+                    .type = INST_NATIVE,
+                    .operand = {.as_u64 = sv_to_int(operand)},
+              };
              } else {
               fprintf(stderr, "ERROR: unknown instruction `%.*s`", (int) token.count, token.data);
               exit(1);
