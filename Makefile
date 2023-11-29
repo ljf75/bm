@@ -1,6 +1,8 @@
 CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes  -pedantic -std=c11
 CC=cc
 LIBS=
+EXAMPLES=./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm ./examples/pi.bm ./examples/lerp.bm 
+
 
 .PHONY: all
 all: basm bme debasm
@@ -16,8 +18,7 @@ debasm: ./src/debasm.c ./src/bm.h
 
 
 .PHONY: examples
-examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm ./examples/pi.bm 
-
+examples: $(EXAMPLES)
 ./examples/fib.bm: basm ./examples/fib.bm
 	./basm ./examples/fib.basm ./examples/fib.bm
 
@@ -32,3 +33,6 @@ examples: ./examples/fib.bm ./examples/123.bm ./examples/123f.bm ./examples/e.bm
 
 ./examples/pi.bm: basm ./examples/pi.bm
 	./basm ./examples/pi.basm ./examples/pi.bm
+
+./examples/lerp.bm: basm ./examples/lerp.bm
+	./basm ./examples/lerp.basm ./examples/lerp.bm

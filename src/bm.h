@@ -12,6 +12,7 @@
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
 #define BM_PROGRAM_CAPACITY 1024
+#define BM_NATIVE_CAPACITY 1024
 #define LABEL_CAPACITY 1024
 #define DEFERED_OPERANDS_CAPACITY 1024
 
@@ -56,6 +57,7 @@ typedef enum {
     INST_GEF,
     INST_RET,
     INST_CALL,
+    INST_NATIVE,
     INST_PRINT_DEBUG,
     NUMBER_OF_INSTS,
 } INST_Type;
@@ -79,7 +81,11 @@ typedef struct {
     Word operand;
 } Inst;
 
-typedef struct {
+typedef struct Bm Bm;
+
+typedef Trap (*Bm_Native)(Bm*);
+
+struct Bm {
    Word stack[BM_STACK_CAPACITY];
    Inst_Addr stack_size;
 
@@ -87,8 +93,11 @@ typedef struct {
    Inst_Addr program_size;
    Inst_Addr ip;
 
+   Bm_Native natives[BM_NATIVE_CAPACITY];
+   size_t natives_size;
+
    int halt;
-} Bm;
+};
 
 Bm bm = {0};
 
@@ -106,7 +115,7 @@ const char *inst_type_as_cstr(INST_Type type);
 
 Trap bm_execute_inst(Bm *bm);
 Trap bm_execute_program(Bm *bm, int limit);
-
+void bm_push_native(Bm *bm, Bm_Native native);
 void bm_dump_stack(FILE *stream, const Bm *bm);
 void bm_load_program_from_memory(Bm *bm, Inst *program, size_t program_size);
 void bm_load_program_from_file(Bm *bm, const char *file_path);
@@ -173,6 +182,7 @@ int inst_has_operand(INST_Type type)
        case INST_GEF:  return 0;
        case INST_RET: return 0;
        case INST_CALL: return 1;
+       case INST_NATIVE: return 1;
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_has_operand: unreachable");
   }
@@ -203,6 +213,7 @@ const char *inst_name(INST_Type type)
        case INST_DROP: return "drop";
        case INST_RET: return "ret";
        case INST_CALL: return "call";
+       case INST_NATIVE: return "native";
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_name: unreachable");
   }
@@ -255,6 +266,7 @@ const char *inst_type_as_cstr(INST_Type type)
      case INST_DROP: return "INST_DROP";
      case INST_RET: return "INST_RET";
      case INST_CALL: return "INST_CALL";
+     case INST_NATIVE: return "INST_NATIVE";
      case NUMBER_OF_INSTS: 
      default: assert(0 && "trap_as_cstr: Unreachable");
    }
@@ -404,7 +416,7 @@ Trap bm_execute_inst(Bm *bm)
       if (bm->stack_size >= BM_STACK_CAPACITY) {
         return TRAP_STACK_OVERFLOW;
       }
-      bm->stack[bm->stack_size + 1].as_u64 = bm->ip + 1;
+      bm->stack[bm->stack_size++].as_u64 = bm->ip + 1;
       bm->ip = inst.operand.as_u64;
       break;
     
@@ -504,6 +516,12 @@ Trap bm_execute_inst(Bm *bm)
       return TRAP_ILLEGAL_INST;    
   }
   return TRAP_OK;
+}
+
+void bm_push_native(Bm *bm, Bm_Native native)
+{
+   assert(bm->natives_size < BM_NATIVE_CAPACITY);
+   bm->natives[bm->natives_size++] = native;
 }
 
 void bm_dump_stack(FILE *stream, const Bm *bm)
