@@ -402,7 +402,7 @@ Trap bm_execute_inst(Bm *bm)
 
     case INST_CALL:
       if (bm->stack_size >= BM_STACK_CAPACITY) {
-        return TRAP_STACK_UNDERFLOW;
+        return TRAP_STACK_OVERFLOW;
       }
       bm->stack[bm->stack_size + 1].as_u64 = bm->ip + 1;
       bm->ip = inst.operand.as_u64;

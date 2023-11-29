@@ -17,6 +17,17 @@ static void usage(FILE *stream, const char *program)
   fprintf(stream, "Usage: %s <input.basm> <output.bm>\n", program);
 }
 
+/*Bm bm_alloc(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  bm->stack[bm->stack_size - 1].as_ptr = malloc(bm->stack[bm->stack_size - 1].as_u64);
+    
+  return TRAP_OK;
+}*/
+
 int main(int argc, char **argv)
 {  
   const char *program = shift(&argc, &argv); // skip program name

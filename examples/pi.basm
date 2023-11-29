@@ -1,4 +1,4 @@
-# ret and call instruction have wrong X/
+#
 push 4.0     # first devision
 push 3.0     # denominator
 push 750000  # counter
