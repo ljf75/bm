@@ -49,6 +49,38 @@ static Trap bm_print_f64(Bm *bm)
   return TRAP_OK;
 }
 
+static Trap bm_print_i64(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRId64 "\n", bm->stack[bm->stack_size - 1].as_i64);
+  bm->stack_size -= 1;
+  return TRAP_OK;
+}
+
+static Trap bm_print_u64(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRIu64 "\n", bm->stack[bm->stack_size - 1].as_u64);
+  bm->stack_size -= 1;
+  return TRAP_OK;
+}
+
+static Trap bm_print_ptr(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  printf("%p\n", bm->stack[bm->stack_size - 1].as_ptr);
+  bm->stack_size -= 1;
+  return TRAP_OK;
+}
 
 int main(int argc, char **argv) 
 {
@@ -93,9 +125,12 @@ int main(int argc, char **argv)
   }
   
   bm_load_program_from_file(&bm, input_file_path);
-  bm_push_native(&bm, bm_alloc);
-  bm_push_native(&bm, bm_free);
-  bm_push_native(&bm, bm_print_f64);
+  bm_push_native(&bm, bm_alloc);     // 0
+  bm_push_native(&bm, bm_free);      // 1
+  bm_push_native(&bm, bm_print_f64); // 2
+  bm_push_native(&bm, bm_print_i64); // 3
+  bm_push_native(&bm, bm_print_u64); // 4
+  bm_push_native(&bm, bm_print_ptr); // 5
 
   if (!debug) {
     Trap trap = bm_execute_program(&bm, limit);
