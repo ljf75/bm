@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes  -pedantic -std=c11
+CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -O3  -pedantic -std=c11
 CC=cc
 LIBS=
 
