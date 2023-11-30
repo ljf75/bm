@@ -38,6 +38,17 @@ static Trap bm_free(Bm *bm)
   return TRAP_OK;
 }
 
+static Trap bm_print_f64(Bm *bm)
+{
+  if (bm->stack_size < 1) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  printf("%lf\n", bm->stack[bm->stack_size - 1].as_f64);
+  bm->stack_size -= 1;
+  return TRAP_OK;
+}
+
 int main(int argc, char **argv) 
 {
  const char *program = shift(&argc, &argv);
@@ -83,11 +94,10 @@ int main(int argc, char **argv)
   bm_load_program_from_file(&bm, input_file_path);
   bm_push_native(&bm, bm_alloc);
   bm_push_native(&bm, bm_free);
-
+  bm_push_native(&bm, bm_print_f64);
 
   if (!debug) {
     Trap trap = bm_execute_program(&bm, limit);
-    bm_dump_stack(stdout, &bm);
 
     if (trap != TRAP_OK) {
       fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));

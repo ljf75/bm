@@ -1,4 +1,11 @@
 #
+
+# TODO: extern native functions declarations from basm files
+#
+# extern alloc 0
+# extern free 1
+# extern print_f64 2
+
 push 4.0     # first devision
 push 3.0     # denominator
 push 750000  # counter
@@ -33,5 +40,6 @@ loop:
 
 drop
 drop
+native 2
 
 halt
