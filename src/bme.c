@@ -49,6 +49,7 @@ static Trap bm_print_f64(Bm *bm)
   return TRAP_OK;
 }
 
+
 int main(int argc, char **argv) 
 {
  const char *program = shift(&argc, &argv);
