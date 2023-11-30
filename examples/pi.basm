@@ -6,7 +6,6 @@
 # extern free 1
 # extern print_f64 2
 
-
 push 4.0     # first devision
 push 3.0     # denominator
 push 750000  # counter
