@@ -2,6 +2,7 @@
 #--- Limit amount of iteration
 #--- Print the generated numbers on each iteration
 #---
+
 # some nosense to test label resolution
   jmp 1
   nop
