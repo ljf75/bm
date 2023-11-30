@@ -26,6 +26,8 @@
 #define MAKE_INST_DUP(addr) {.type = INST_DUP, .operand = (addr)}
 #define MAKE_INST_HALT {.type = INST_JMP, .operand = (addr)}
 
+#define BASM_COMMENT_SYMBOL ';'
+
 typedef enum {
   TRAP_OK = 0,
   TRAP_STACK_OVERFLOW,
@@ -732,7 +734,7 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
    while (source.count > 0) {
      assert(bm->program_size < BM_PROGRAM_CAPACITY);
      String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
-     if (line.count > 0 && *line.data != '#') {
+     if (line.count > 0 && *line.data != BASM_COMMENT_SYMBOL) {
         String_View token = sv_chop_by_delim(&line, ' ');
         
         if (token.count > 0 && token.data[token.count - 1] == ':') {
@@ -747,7 +749,7 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
         } 
 
        if (token.count > 0) {
-          String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
+          String_View operand = sv_trim(sv_chop_by_delim(&line, BASM_COMMENT_SYMBOL));
 
            if (sv_eq(token, cstr_as_sv(inst_name(INST_NOP)))) {
                bm->program[bm->program_size++] = (Inst) {
