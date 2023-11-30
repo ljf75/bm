@@ -36,6 +36,9 @@ typedef enum {
   TRAP_DIV_BY_ZERO,
 } Trap;
 
+// TODO: comparsion instruction is not set
+// TODOl there is no operation for converting integer->float/float->integer
+
 typedef enum {
     INST_NOP = 0,
     INST_PUSH,
@@ -492,6 +495,7 @@ Trap bm_execute_inst(Bm *bm)
         bm->ip += 1;
         break;
 
+    // TODO: incosistency between gef and minus* instructions operand orders
     case INST_NOT:
       if (bm->stack_size <= 1) {
         return TRAP_STACK_UNDERFLOW;
