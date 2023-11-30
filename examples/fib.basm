@@ -1,7 +1,6 @@
 #TODO: rewrite fib.basm example
 #--- Limit amount of iteration
 #--- Print the generated numbers on each iteration
-#--- How to do?
 #---
 # some nosense to test label resolution
   jmp 1
