@@ -1,16 +1,15 @@
-# 100
-# 1
-# 0
+#include "./natives.basm"
+#define N 30
 
 main:
-  push 0      # F_0
-  push 1      # F_1
-  push 10    # the amount of limit
+  push 0      ; F_0
+  push 1      ; F_1
+  push N     ; the amount of limit
   
 loop: 
    swap 2
    dup 0
-   native 4
+   native print_u64
    dup 1
    plusf
    swap 1
@@ -24,5 +23,5 @@ loop:
 
    not
 
-   jmp_if loop    # Repeat
+   jmp_if loop    ; Repeat
    halt
