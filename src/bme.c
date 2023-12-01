@@ -15,7 +15,7 @@ static void usage(FILE *stream, const char *program)
   fprintf(stream, "Usage: %s -i <input.bm> [-l <limit>] [-h] [-d]\n", program);
 }
 
-static Trap bm_alloc(Bm *bm)
+static Err bm_alloc(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -26,7 +26,7 @@ static Trap bm_alloc(Bm *bm)
   return TRAP_OK;
 }
 
-static Trap bm_free(Bm *bm)
+static Err bm_free(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -38,7 +38,7 @@ static Trap bm_free(Bm *bm)
   return TRAP_OK;
 }
 
-static Trap bm_print_f64(Bm *bm)
+static Err bm_print_f64(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -49,7 +49,7 @@ static Trap bm_print_f64(Bm *bm)
   return TRAP_OK;
 }
 
-static Trap bm_print_i64(Bm *bm)
+static Err bm_print_i64(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -60,7 +60,7 @@ static Trap bm_print_i64(Bm *bm)
   return TRAP_OK;
 }
 
-static Trap bm_print_u64(Bm *bm)
+static Err bm_print_u64(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -71,7 +71,7 @@ static Trap bm_print_u64(Bm *bm)
   return TRAP_OK;
 }
 
-static Trap bm_print_ptr(Bm *bm)
+static Err bm_print_ptr(Bm *bm)
 {
   if (bm->stack_size < 1) {
     return TRAP_STACK_UNDERFLOW;
@@ -133,10 +133,10 @@ int main(int argc, char **argv)
   bm_push_native(&bm, bm_print_ptr); // 5
 
   if (!debug) {
-    Trap trap = bm_execute_program(&bm, limit);
+    Err err = bm_execute_program(&bm, limit);
 
-    if (trap != TRAP_OK) {
-      fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));
+    if (err != TRAP_OK) {
+      fprintf(stderr, "ERROR: %s\n", trap_as_cstr(err));
       return 1;
     }
   } else {
@@ -144,9 +144,9 @@ int main(int argc, char **argv)
         bm_dump_stack(stdout, &bm);
         printf("Instruction: %s %" PRIu64  "\n", inst_name(bm.program[bm.ip].type), bm.program[bm.ip].operand.as_u64);
         getchar();
-        Trap trap = bm_execute_inst(&bm);
-        if (trap != TRAP_OK) {
-            fprintf(stderr, "ERROR: %s\n", trap_as_cstr(trap));
+        Err err = bm_execute_inst(&bm);
+        if (err != TRAP_OK) {
+            fprintf(stderr, "ERROR: %s\n", trap_as_cstr(err));
             return 1;
         }
         if (limit > 0) {

@@ -36,7 +36,7 @@ typedef enum {
   TRAP_ILLEGAL_INST_ACCESS,
   TRAP_ILLEGAL_OPERAND,
   TRAP_DIV_BY_ZERO,
-} Trap;
+} Err;
 
 typedef struct 
 {
@@ -70,6 +70,7 @@ typedef enum {
     INST_RET,
     INST_CALL,
     INST_NATIVE,
+    INST_URMOM,
     NUMBER_OF_INSTS,
 } Inst_Type;
 
@@ -95,7 +96,7 @@ typedef struct {
 
 typedef struct Bm Bm;
 
-typedef Trap (*Bm_Native)(Bm*);
+typedef Err (*Bm_Native)(Bm*);
 
 struct Bm {
    Word stack[BM_STACK_CAPACITY];
@@ -116,11 +117,11 @@ Bm bm = {0};
 int sv_eq(String_View a, String_View b);
 int sv_to_int(String_View sv);
 
-const char *trap_as_cstr(Trap trap);
+const char *trap_as_cstr(Err err);
 const char *inst_type_as_cstr(Inst_Type type);
 
-Trap bm_execute_inst(Bm *bm);
-Trap bm_execute_program(Bm *bm, int limit);
+Err bm_execute_inst(Bm *bm);
+Err bm_execute_program(Bm *bm, int limit);
 void bm_push_native(Bm *bm, Bm_Native native);
 void bm_dump_stack(FILE *stream, const Bm *bm);
 void bm_load_program_from_memory(Bm *bm, Inst *program, size_t program_size);
@@ -152,10 +153,10 @@ typedef struct {
 } Basm;
 
 Inst_Addr basm_find_label_addr(const Basm *llt, String_View name);
-void basm_push_label(Basm *lt, String_View name, Inst_Addr addr);
-void basm_push_defered_operand(Basm *lt, Inst_Addr addr, String_View label);
+void basm_push_label(Basm *basm, String_View name, Inst_Addr addr);
+void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View label);
 
-void bm_translate_source(String_View source, Bm *bm, Basm *lt);
+void bm_translate_source(String_View source, Bm *bm, Basm *basm, const char *input_file_path);
 
 int number_literal_as_word(String_View sv, Word *output);
 
@@ -188,6 +189,7 @@ int inst_has_operand(Inst_Type type)
        case INST_RET: return 0;
        case INST_CALL: return 1;
        case INST_NATIVE: return 1;
+       case INST_URMOM: return 1;
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_has_operand: unreachable");
   }
@@ -230,14 +232,15 @@ const char *inst_name(Inst_Type type)
        case INST_RET: return "ret";
        case INST_CALL: return "call";
        case INST_NATIVE: return "native";
+       case INST_URMOM: return "urmom";
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_name: unreachable");
   }
 }
 
-const char *trap_as_cstr(Trap trap)
+const char *trap_as_cstr(Err err)
 {
-  switch (trap) {
+  switch (err) {
       case TRAP_OK:
           return "TRAP_OK";
       case TRAP_STACK_OVERFLOW:
@@ -282,17 +285,18 @@ const char *inst_type_as_cstr(Inst_Type type)
      case INST_RET: return "INST_RET";
      case INST_CALL: return "INST_CALL";
      case INST_NATIVE: return "INST_NATIVE";
+     case INST_URMOM: return "INST_URMOM";
      case NUMBER_OF_INSTS: 
      default: assert(0 && "trap_as_cstr: Unreachable");
    }
 }
 
-Trap bm_execute_program(Bm *bm, int limit)
+Err bm_execute_program(Bm *bm, int limit)
 {
   while (limit != 0 && !bm->halt) {
-    Trap trap = bm_execute_inst(bm);
-    if (trap != TRAP_OK) {
-      return trap;
+    Err err = bm_execute_inst(bm);
+    if (err != TRAP_OK) {
+      return err;
     }
     if (limit > 0) {
       --limit;
@@ -301,7 +305,7 @@ Trap bm_execute_program(Bm *bm, int limit)
   return TRAP_OK;
 }
 
-Trap bm_execute_inst(Bm *bm) 
+Err bm_execute_inst(Bm *bm) 
 {
   if (bm->ip > bm->program_size) {
      return TRAP_ILLEGAL_INST_ACCESS;
@@ -519,9 +523,11 @@ Trap bm_execute_inst(Bm *bm)
       bm->stack[bm->stack_size -1].as_u64 =  !bm->stack[bm->stack_size -1].as_u64;
       bm->ip += 1;
       break;
+
+    case INST_URMOM:
+      break;
     
-    case NUMBER_OF_INSTS:
-    
+    case NUMBER_OF_INSTS:    
     default:
       return TRAP_ILLEGAL_INST;    
   }
@@ -692,27 +698,27 @@ int sv_to_int(String_View sv)
   return result;
 }
 
-Inst_Addr basm_find_label_addr(const Basm *lt, String_View name)
+Inst_Addr basm_find_label_addr(const Basm *basm, String_View name)
 {
-    for (size_t i = 0; i < lt->labels_size; ++i) {
-      if (sv_eq(lt->labels[i].name, name)) {
-         return lt->labels[i].addr;
+    for (size_t i = 0; i < basm->labels_size; ++i) {
+      if (sv_eq(basm->labels[i].name, name)) {
+         return basm->labels[i].addr;
       }
     }
     fprintf(stderr, "ERROR: label `%.*s` does not exist\n", (int) name.count, name.data);
     exit(1);
 }
 
-void basm_push_label(Basm *lt, String_View name, Inst_Addr addr)
+void basm_push_label(Basm *basm, String_View name, Inst_Addr addr)
 {
-  assert(lt->labels_size < LABEL_CAPACITY);
-  lt->labels[lt->labels_size++] = (Label) {.name = name, .addr = addr};
+  assert(basm->labels_size < LABEL_CAPACITY);
+  basm->labels[basm->labels_size++] = (Label) {.name = name, .addr = addr};
 }
 
-void basm_push_defered_operand(Basm *lt, Inst_Addr addr, String_View label)
+void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View label)
 {
-  assert(lt->defered_operands_size < DEFERED_OPERANDS_CAPACITY);
-  lt->defered_operands[lt->defered_operands_size++] =    
+  assert(basm->defered_operands_size < DEFERED_OPERANDS_CAPACITY);
+  basm->defered_operands[basm->defered_operands_size++] =    
       (Defered_Operand) {.addr = addr, .label = label};
 }
 
@@ -739,14 +745,16 @@ int number_literal_as_word(String_View sv, Word *output)
   return 1;
 }
 
-void bm_translate_source(String_View source, Bm *bm, Basm *lt)
+void bm_translate_source(String_View source, Bm *bm, Basm *basm, const char *input_file_path)
 {
    bm->program_size = 0;
+   int line_number = 0;
 
    // First pass
    while (source.count > 0) {
      assert(bm->program_size < BM_PROGRAM_CAPACITY);
      String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
+     line_number += 1;
      if (line.count > 0 && *line.data != BASM_COMMENT_SYMBOL) {
         String_View token = sv_chop_by_delim(&line, ' ');
         
@@ -756,7 +764,7 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
              .data = token.data,
           };
 
-          basm_push_label(lt, label, bm->program_size);
+          basm_push_label(basm, label, bm->program_size);
           
           token = sv_trim(sv_chop_by_delim(&line, ' '));
         } 
@@ -769,24 +777,28 @@ void bm_translate_source(String_View source, Bm *bm, Basm *lt)
              bm->program[bm->program_size].type = inst_type;
              
              if (inst_has_operand(inst_type)) {
+               if (operand.count == 0) {
+                 fprintf(stderr, "%s:%d: ERROR: instruction `%.*s` requires an operand\n", input_file_path, line_number, (int) token.count, token.data);
+                 exit(1);
+               }
                if (!number_literal_as_word(operand, &bm->program[bm->program_size].operand)) {                
                 basm_push_defered_operand(
-                 lt, bm->program_size, operand);
+                 basm, bm->program_size, operand);
                }
              }
              bm->program_size += 1;
            } else {
-              fprintf(stderr, "ERROR: unknown instruction `%.*s`", (int) token.count, token.data);
+              fprintf(stderr, "%s:%d: ERROR: unknown instruction `%.*s`\n", input_file_path, line_number, (int) token.count, token.data);
               exit(1);
           }
        }
      }
    }
     // Second pass
-    for (size_t i = 0; i < lt->defered_operands_size; ++i) {
+    for (size_t i = 0; i < basm->defered_operands_size; ++i) {
 
-        Inst_Addr addr = basm_find_label_addr(lt,lt->defered_operands[i].label);
-        bm->program[lt->defered_operands[i].addr].operand.as_u64 = addr;
+        Inst_Addr addr = basm_find_label_addr(basm,basm->defered_operands[i].label);
+        bm->program[basm->defered_operands[i].addr].operand.as_u64 = addr;
 
     }
 }
