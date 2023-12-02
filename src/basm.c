@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 
   bm_save_program_to_file(&bm, output_file_path);
 
-  printf("%zd bytes of memory\n", basm.memory_size);
+  printf("%zd bytes of memory used\n", basm.memory_size);
 
   return 0;
 }
