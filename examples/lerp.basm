@@ -1,5 +1,3 @@
-#include "./natives.basm"
-
   jmp main
 
 lerpf:
@@ -33,7 +31,7 @@ loop:
   dup 3
   dup 3
   call lerpf
-  native print_f64
+  native 2
 
   swap 1
   dup  1

@@ -1,10 +1,4 @@
-#include "./natives.basm"
-
-; TODO: extern native functions declarations from basm files
-;
-; extern alloc 0
-; extern free 1
-; extern print_f64 2
+%label print_f64 2
 
 push 4.0     ; first devision
 push 3.0     ; denominator
