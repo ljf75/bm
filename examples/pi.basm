@@ -1,4 +1,4 @@
-%label print_f64 2
+%include "./examples/natives.basm"
 
 push 4.0     ; first devision
 push 3.0     ; denominator

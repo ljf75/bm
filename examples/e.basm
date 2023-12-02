@@ -1,4 +1,4 @@
-;#include "./natives.basm"
+%include "./examples/natives.basm"
 
 ; sum(1/n!)
 ; 1/1 + 1/1 + 1/(1*2) + 1/(1*2*3) + ...
@@ -28,6 +28,6 @@ loop:
  
   jmp_if loop
 
-  native 2
+  native print_f64
 
   halt
