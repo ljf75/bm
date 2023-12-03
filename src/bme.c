@@ -91,11 +91,11 @@ static Err bm_dump_memory(Bm *bm)
   Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
   uint64_t count = bm->stack[bm->stack_size - 1].as_u64;
 
-  if (addr >= BM_MEMORY_CAPACITY) {
+  if (addr >= BASM_ARENA_CAPACITY) {
     return TRAP_ILLEGAL_MEMORY_ACCESS;
   }
 
-  if (addr + count < addr || addr + count >=  BM_MEMORY_CAPACITY) {
+  if (addr + count < addr || addr + count >=  BASM_ARENA_CAPACITY) {
     return TRAP_ILLEGAL_MEMORY_ACCESS;
   }
   

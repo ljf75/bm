@@ -1,10 +1,10 @@
 %include "./examples/natives.basm"
-%label MEMORY_SIZE 420
+%label arena_size 420
 
   jmp main
 
 main:
-  push MEMORY_SIZE
+  push arena_size
   native alloc
   dup 0
   native print_ptr

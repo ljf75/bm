@@ -16,7 +16,7 @@
 #define BM_NATIVE_CAPACITY 1024
 #define LABEL_CAPACITY 1024
 #define DEFERED_OPERANDS_CAPACITY 1024
-#define BM_MEMORY_CAPACITY (640 * 1000)
+#define BASM_ARENA_CAPACITY (640 * 1000)
 
 #define MAKE_INST_PUSH(value) {.type = INST_PUSH, .operand = (value)}
 #define MAKE_INST_PLUS {.type = INST_PLUSI}
@@ -131,7 +131,7 @@ struct Bm {
    Bm_Native natives[BM_NATIVE_CAPACITY];
    size_t natives_size;
 
-   uint8_t memory[BM_MEMORY_CAPACITY];
+   uint8_t memory[BASM_ARENA_CAPACITY];
 
    int halt;
 };
@@ -173,8 +173,8 @@ typedef struct {
   size_t labels_size;
   Defered_Operand defered_operands[DEFERED_OPERANDS_CAPACITY];
   size_t defered_operands_size;
-  char memory[BASM_MEMORY_CAPACITY];
-  size_t memory_size;
+  char arena[BASM_ARENA_CAPACITY];
+  size_t arena_size;
 } Basm;
 
 void *basm_alloc(Basm *basm, size_t size);
@@ -656,7 +656,7 @@ Err bm_execute_inst(Bm *bm)
            return TRAP_STACK_UNDERFLOW;
         }
         const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
-        if (addr >= BM_MEMORY_CAPACITY) {
+        if (addr >= BASM_ARENA_CAPACITY) {
            return TRAP_ILLEGAL_MEMORY_ACCESS;
         }
         bm->stack[bm->stack_size - 1].as_u64 = *(uint16_t*)&bm->memory[addr];
@@ -668,7 +668,7 @@ Err bm_execute_inst(Bm *bm)
            return TRAP_STACK_UNDERFLOW;
         }
         const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
-        if (addr >= BM_MEMORY_CAPACITY - 1) {
+        if (addr >= BASM_ARENA_CAPACITY - 1) {
            return TRAP_ILLEGAL_MEMORY_ACCESS;
         }
         bm->stack[bm->stack_size - 1].as_u64 = *(uint16_t*)&bm->memory[addr];
@@ -680,7 +680,7 @@ Err bm_execute_inst(Bm *bm)
            return TRAP_STACK_UNDERFLOW;
         }
         const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
-        if (addr >= BM_MEMORY_CAPACITY - 3) {
+        if (addr >= BASM_ARENA_CAPACITY - 3) {
           return TRAP_ILLEGAL_MEMORY_ACCESS;
         }
         bm->stack[bm->stack_size - 1].as_u64 = *(uint32_t*)&bm->memory[addr];
@@ -692,7 +692,7 @@ Err bm_execute_inst(Bm *bm)
            return TRAP_STACK_UNDERFLOW;
         }
         const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
-        if (addr >= BM_MEMORY_CAPACITY - 7) {
+        if (addr >= BASM_ARENA_CAPACITY - 7) {
           return TRAP_ILLEGAL_MEMORY_ACCESS;
         }
         bm->stack[bm->stack_size - 1].as_u64 = *(uint64_t*)&bm->memory[addr];
@@ -704,7 +704,7 @@ Err bm_execute_inst(Bm *bm)
             return TRAP_STACK_UNDERFLOW;
           }
           const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
-          if (addr >= BM_MEMORY_CAPACITY) {
+          if (addr >= BASM_ARENA_CAPACITY) {
              return TRAP_ILLEGAL_MEMORY_ACCESS;
           }
           bm->memory[addr] = (uint8_t) bm->stack[bm->stack_size - 1].as_u64;
@@ -717,7 +717,7 @@ Err bm_execute_inst(Bm *bm)
             return TRAP_STACK_UNDERFLOW;
           }
           const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
-          if (addr >= BM_MEMORY_CAPACITY - 1) {
+          if (addr >= BASM_ARENA_CAPACITY - 1) {
              return TRAP_ILLEGAL_MEMORY_ACCESS;
           }
           *(uint16_t*)&bm->memory[addr] = (uint16_t) bm->stack[bm->stack_size - 1].as_u64;
@@ -730,7 +730,7 @@ Err bm_execute_inst(Bm *bm)
           return TRAP_STACK_UNDERFLOW;
         }
         const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
-        if (addr >= BM_MEMORY_CAPACITY - 3) {
+        if (addr >= BASM_ARENA_CAPACITY - 3) {
            return TRAP_ILLEGAL_MEMORY_ACCESS;
         }
         *(uint32_t*)&bm->memory[addr] = (uint32_t) bm->stack[bm->stack_size - 1].as_u64;
@@ -743,7 +743,7 @@ Err bm_execute_inst(Bm *bm)
             return TRAP_STACK_UNDERFLOW;
           }
           const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
-          if (addr >= BM_MEMORY_CAPACITY - 7) {
+          if (addr >= BASM_ARENA_CAPACITY - 7) {
              return TRAP_ILLEGAL_MEMORY_ACCESS;
           }
           *(uint64_t*)&bm->memory[addr] = (uint64_t) bm->stack[bm->stack_size - 1].as_u64;
@@ -924,10 +924,10 @@ int sv_to_int(String_View sv)
 
 void *basm_alloc(Basm *basm, size_t size)
 {
-  assert(basm->memory_size + size <= BASM_MEMORY_CAPACITY);
+  assert(basm->arena_size + size <= BASM_MEMORY_CAPACITY);
 
-  void *result = basm->memory + basm->memory_size;
-  basm->memory_size += size;
+  void *result = basm->arena + basm->arena_size;
+  basm->arena_size += size;
   return result;
 }
 
