@@ -1,3 +1,4 @@
+; Generate N Gray Code numbers from https://en.wikipedia.org/wiki/Gray_code
 %include "./examples/natives.basm"
   
   jmp main
