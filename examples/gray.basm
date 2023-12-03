@@ -3,7 +3,7 @@
   
   jmp main
 
-%label N 21
+%bind N 21
 
 main:
   push 0   ; i

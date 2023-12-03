@@ -1,5 +1,5 @@
 %include "./examples/natives.basm"
-%label arena_size 420
+%bind arena_size 420
 
   jmp main
 

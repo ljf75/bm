@@ -1,7 +1,7 @@
 ;; Fill up the memory with number from 0 to N
 %include "./examples/natives.basm"
 
-%label N 256
+%bind N 256
 
   push  0      ; i
 
