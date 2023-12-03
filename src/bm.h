@@ -16,6 +16,7 @@
 #define BM_NATIVE_CAPACITY 1024
 #define LABEL_CAPACITY 1024
 #define DEFERED_OPERANDS_CAPACITY 1024
+#define BM_MEMORY_CAPACITY (640 * 1000)
 
 #define MAKE_INST_PUSH(value) {.type = INST_PUSH, .operand = (value)}
 #define MAKE_INST_PLUS {.type = INST_PLUSI}
@@ -38,6 +39,7 @@ typedef enum {
   TRAP_ILLEGAL_INST,
   TRAP_ILLEGAL_INST_ACCESS,
   TRAP_ILLEGAL_OPERAND,
+  TRAP_ILLEGAL_MEMORY_ACCESS,
   TRAP_DIV_BY_ZERO,
 } Err;
 
@@ -81,6 +83,14 @@ typedef enum {
     INST_SHR,
     INST_SHL,
     INST_NOTB,
+    INST_READ8,
+    INST_READ16,
+    INST_READ32,
+    INST_READ64,
+    INST_WRITE8,
+    INST_WRITE16,
+    INST_WRITE32,
+    INST_WRITE64,
     NUMBER_OF_INSTS,
 } Inst_Type;
 
@@ -89,6 +99,8 @@ int inst_has_operand(Inst_Type type);
 int inst_by_name(String_View name, Inst_Type *output);
 
 typedef uint64_t Inst_Addr;
+typedef uint64_t Memory_Addr;
+
 
 typedef union {
   uint64_t as_u64;
@@ -118,6 +130,8 @@ struct Bm {
 
    Bm_Native natives[BM_NATIVE_CAPACITY];
    size_t natives_size;
+
+   uint8_t memory[BM_MEMORY_CAPACITY];
 
    int halt;
 };
@@ -208,6 +222,14 @@ int inst_has_operand(Inst_Type type)
        case INST_SHR: return 0;
        case INST_SHL: return 0;
        case INST_NOTB: return 0;
+       case INST_READ8: return 0;
+       case INST_READ16: return 0;
+       case INST_READ32: return 0;
+       case INST_READ64: return 0;
+       case INST_WRITE8: return 0;
+       case INST_WRITE16: return 0;
+       case INST_WRITE32: return 0;
+       case INST_WRITE64: return 0;
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_has_operand: unreachable");
   }
@@ -256,6 +278,14 @@ const char *inst_name(Inst_Type type)
        case INST_SHR: return "shr";
        case INST_SHL: return "shl";
        case INST_NOTB: return "not";
+       case INST_READ8: return "read8";
+       case INST_READ16: return "read16";
+       case INST_READ32: return "read32";
+       case INST_READ64: return "read64";
+       case INST_WRITE8: return "write8";
+       case INST_WRITE16: return "write16";
+       case INST_WRITE32: return "write32";
+       case INST_WRITE64: return "write64";
        case NUMBER_OF_INSTS: 
        default: assert(0 && "inst_name: unreachable");
   }
@@ -278,6 +308,8 @@ const char *trap_as_cstr(Err err)
           return "TRAP_ILLEGAL_OPERAND";
       case TRAP_DIV_BY_ZERO:
           return "TRAP_DIV_BY_ZERO";
+      case TRAP_ILLEGAL_MEMORY_ACCESS:
+          return "TRAP_ILLEGAL_MEMORY_ACCESS";
       default:
           assert(0 && "trap_as_cstr: Unreachable");
   }
@@ -314,6 +346,14 @@ const char *inst_type_as_cstr(Inst_Type type)
      case INST_SHR: return "INST_SHR";
      case INST_SHL: return "INST_SHL";
      case INST_NOTB: return "INST_NOTB";
+     case INST_READ8: return "INST_READ8";
+     case INST_READ16: return "INST_READ16";
+     case INST_READ32: return "INST_READ32";
+     case INST_READ64: return "INST_READ64";
+     case INST_WRITE8: return "INST_WRITE8";
+     case INST_WRITE16: return "INST_WRITE16";
+     case INST_WRITE32: return "INST_WRITE32";
+     case INST_WRITE64: return "INST_WRITE64";
      case NUMBER_OF_INSTS: 
      default: assert(0 && "trap_as_cstr: Unreachable");
    }
@@ -610,7 +650,107 @@ Err bm_execute_inst(Bm *bm)
         bm->stack[bm->stack_size - 1].as_u64 =  ~bm->stack[bm->stack_size - 1].as_u64;
         bm->ip += 1;
         break;
-      
+
+    case INST_READ8: {
+        if (bm->stack_size < 1) {
+           return TRAP_STACK_UNDERFLOW;
+        }
+        const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
+        if (addr >= BM_MEMORY_CAPACITY) {
+           return TRAP_ILLEGAL_MEMORY_ACCESS;
+        }
+        bm->stack[bm->stack_size - 1].as_u64 = *(uint16_t*)&bm->memory[addr];
+        bm->ip += 1;
+    } break;
+    
+    case INST_READ16: {
+        if (bm->stack_size < 1) {
+           return TRAP_STACK_UNDERFLOW;
+        }
+        const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
+        if (addr >= BM_MEMORY_CAPACITY - 1) {
+           return TRAP_ILLEGAL_MEMORY_ACCESS;
+        }
+        bm->stack[bm->stack_size - 1].as_u64 = *(uint16_t*)&bm->memory[addr];
+        bm->ip += 1;
+    } break;
+    
+    case INST_READ32: {
+        if (bm->stack_size < 1) {
+           return TRAP_STACK_UNDERFLOW;
+        }
+        const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
+        if (addr >= BM_MEMORY_CAPACITY - 3) {
+          return TRAP_ILLEGAL_MEMORY_ACCESS;
+        }
+        bm->stack[bm->stack_size - 1].as_u64 = *(uint32_t*)&bm->memory[addr];
+        bm->ip += 1;
+    } break;
+    
+    case INST_READ64: {
+        if (bm->stack_size < 1) {
+           return TRAP_STACK_UNDERFLOW;
+        }
+        const Memory_Addr addr = bm->stack[bm->stack_size - 1].as_u64;
+        if (addr >= BM_MEMORY_CAPACITY - 7) {
+          return TRAP_ILLEGAL_MEMORY_ACCESS;
+        }
+        bm->stack[bm->stack_size - 1].as_u64 = *(uint64_t*)&bm->memory[addr];
+        bm->ip += 1;
+    }  break;
+    
+    case INST_WRITE8: {
+         if (bm->stack_size < 2) {
+            return TRAP_STACK_UNDERFLOW;
+          }
+          const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
+          if (addr >= BM_MEMORY_CAPACITY) {
+             return TRAP_ILLEGAL_MEMORY_ACCESS;
+          }
+          bm->memory[addr] = (uint8_t) bm->stack[bm->stack_size - 1].as_u64;
+          bm->stack_size -= 2;
+          bm->ip += 1;
+    } break;
+    
+    case INST_WRITE16: {
+         if (bm->stack_size < 2) {
+            return TRAP_STACK_UNDERFLOW;
+          }
+          const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
+          if (addr >= BM_MEMORY_CAPACITY - 1) {
+             return TRAP_ILLEGAL_MEMORY_ACCESS;
+          }
+          *(uint16_t*)&bm->memory[addr] = (uint16_t) bm->stack[bm->stack_size - 1].as_u64;
+          bm->stack_size -= 2;
+          bm->ip += 1;
+    } break;
+    
+    case INST_WRITE32: {
+        if (bm->stack_size < 2) {
+          return TRAP_STACK_UNDERFLOW;
+        }
+        const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
+        if (addr >= BM_MEMORY_CAPACITY - 3) {
+           return TRAP_ILLEGAL_MEMORY_ACCESS;
+        }
+        *(uint32_t*)&bm->memory[addr] = (uint32_t) bm->stack[bm->stack_size - 1].as_u64;
+        bm->stack_size -= 2;
+        bm->ip += 1;
+    } break;
+    
+    case INST_WRITE64: {
+          if (bm->stack_size < 2) {
+            return TRAP_STACK_UNDERFLOW;
+          }
+          const Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
+          if (addr >= BM_MEMORY_CAPACITY - 7) {
+             return TRAP_ILLEGAL_MEMORY_ACCESS;
+          }
+          *(uint64_t*)&bm->memory[addr] = (uint64_t) bm->stack[bm->stack_size - 1].as_u64;
+          bm->stack_size -= 2;
+          bm->ip += 1;
+      } break;
+    
     case NUMBER_OF_INSTS:    
     default:
       return TRAP_ILLEGAL_INST;    
@@ -666,7 +806,7 @@ void bm_load_program_from_file(Bm *bm, const char *file_path)
      exit(1);
   }
 
-  assert(m % sizeof(bm->program[0]) == 0);
+  assert((size_t) m % sizeof(bm->program[0]) == 0);
   assert((size_t) m <= BM_PROGRAM_CAPACITY * sizeof(bm->program[0]));
 
   if (fseek(f, 0, SEEK_SET) < 0) {
@@ -674,7 +814,7 @@ void bm_load_program_from_file(Bm *bm, const char *file_path)
      exit(1);
   }
 
-  bm->program_size = fread(bm->program, sizeof(bm->program[0]), m / sizeof(bm->program[0]), f);
+  bm->program_size = fread(bm->program, sizeof(bm->program[0]), (size_t) m / sizeof(bm->program[0]), f);
   if (ferror(f)) {
     fprintf(stderr, "ERROR: could not read file %s : %s\n", file_path, strerror(errno));
      exit(1);
@@ -999,7 +1139,7 @@ String_View basm_slurp_file(Basm *basm, String_View file_path)
      exit(1);
   }
 
-  char *buffer = basm_alloc(basm, m);
+  char *buffer = basm_alloc(basm, (size_t) m);
   if (buffer == NULL) {
     fprintf(stderr, "ERROR: could not allocate memory for file: %s\n", strerror(errno));
      exit(1);
@@ -1010,7 +1150,7 @@ String_View basm_slurp_file(Basm *basm, String_View file_path)
      exit(1);
   }
 
-  size_t n = fread(buffer, 1, m, f);
+  size_t n = fread(buffer, 1, (size_t) m, f);
   if (ferror(f)) {
      fprintf(stderr, "ERROR: could not read file `%s` : %s\n", file_path_cstr, strerror(errno));
      exit(1);
