@@ -215,9 +215,9 @@ int basm_bind_value(Basm *basm, String_View name, Word word);
 void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View name);
 
 void basm_save_to_file(Basm *basm, const char *output_file_path);
-void bm_translate_source(Basm *basm, String_View input_file_path, size_t level);
+void basm_translate_source(Basm *basm, String_View input_file_path, size_t level);
 
-int number_literal_as_word(String_View sv, Word *output);
+bool basm_translate_literal(String_View sv, Word *output);
 
 #endif // __BM_H_
 
@@ -1026,7 +1026,7 @@ void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View name)
       (Defered_Operand) {.addr = addr, .name = name};
 }
 
-int number_literal_as_word(String_View sv, Word *output)
+bool basm_translate_literal(String_View sv, Word *output)
 {
   assert(sv.count < 1024);
   char cstr[sv.count + 1];
@@ -1041,12 +1041,12 @@ int number_literal_as_word(String_View sv, Word *output)
   if ((size_t) (endptr - cstr) != sv.count) {
      result.as_f64 = strtod(cstr, &endptr);
      if ((size_t) (endptr - cstr) != sv.count) {
-       return 0;
+       return false;
      } 
   } 
 
   *output = result;
-  return 1;
+  return true;
 }
 
 void basm_save_to_file(Basm *basm, const char *output_file_path)
@@ -1086,7 +1086,7 @@ void basm_save_to_file(Basm *basm, const char *output_file_path)
     fclose(f);
 }
 
-void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
+void basm_translate_source(Basm *basm, String_View input_file_path, size_t level)
 {
    String_View original_source = basm_slurp_file(basm, input_file_path);
    String_View source = original_source;
@@ -1110,7 +1110,7 @@ void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
                 line = sv_trim(line);
                 String_View value = sv_chop_by_delim(&line, ' ');
                 Word word = {0};
-                if (!number_literal_as_word(value, &word)) {
+                if (!basm_translate_literal(value, &word)) {
                   fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(value));
                    exit(1);
                 }
@@ -1135,7 +1135,7 @@ void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
                        exit(1);
                     }
                     
-                    bm_translate_source(basm,  line, level + 1);
+                    basm_translate_source(basm,  line, level + 1);
                   } else {
                     fprintf(stderr, "%.*s:%d: ERROR: include file path has to be surrounded with quotation marks\n", SV_FORMAT(input_file_path), line_number);
                      exit(1);
@@ -1150,7 +1150,7 @@ void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
              exit(1);
            }
         } else {
-          // name
+          // binding
             if (token.count > 0 && token.data[token.count - 1] == ':') {
               String_View name = {
                  .count = token.count - 1,
@@ -1180,7 +1180,7 @@ void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
                      fprintf(stderr, "%.*s:%d: ERROR: instruction `%.*s` requires an operand\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
                      exit(1);
                    }
-                   if (!number_literal_as_word(operand, &basm->program[basm->program_size].operand)) {                
+                   if (!basm_translate_literal(operand, &basm->program[basm->program_size].operand)) {                
                     basm_push_defered_operand(
                      basm, basm->program_size, operand);
                    }

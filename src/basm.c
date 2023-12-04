@@ -38,7 +38,7 @@ int main(int argc, char **argv)
   
   const char *output_file_path = shift(&argc, &argv);
 
-  bm_translate_source(&basm, cstr_as_sv(input_file_path), 0);
+  basm_translate_source(&basm, cstr_as_sv(input_file_path), 0);
 
   basm_save_to_file(&basm, output_file_path);
 
