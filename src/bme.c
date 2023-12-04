@@ -109,6 +109,30 @@ static Err bm_dump_memory(Bm *bm)
   return TRAP_OK;
 }
 
+static Err bm_write(Bm *bm)
+{
+  if (bm->stack_size < 2) {
+    return TRAP_STACK_UNDERFLOW;
+  }
+
+  Memory_Addr addr = bm->stack[bm->stack_size - 2].as_u64;
+  uint64_t count = bm->stack[bm->stack_size - 1].as_u64;
+
+  if (addr >= BASM_ARENA_CAPACITY) {
+    return TRAP_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  if (addr + count < addr || addr + count >=  BASM_ARENA_CAPACITY) {
+    return TRAP_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  fwrite(&bm->memory[addr], sizeof(bm->memory[0]), count, stdout);
+
+  bm->stack_size -= 2;
+
+  return TRAP_OK;
+}
+
 // TODO: implement gdb-style debugger for bm
 
 int main(int argc, char **argv) 
@@ -161,6 +185,7 @@ int main(int argc, char **argv)
   bm_push_native(&bm, bm_print_u64); // 4
   bm_push_native(&bm, bm_print_ptr); // 5
   bm_push_native(&bm, bm_dump_memory); // 6
+  bm_push_native(&bm, bm_write);      // 7
 
 
   if (!debug) {
