@@ -11,6 +11,13 @@
 #include<inttypes.h>
 #include<stdbool.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define PACKED __attribute__((packed))
+#else
+#  warning "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request to https://github.com/tsoding/bm"
+#  define PACKED
+#endif
+
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
 #define BM_PROGRAM_CAPACITY 1024
@@ -163,6 +170,17 @@ String_View sv_trim_left(String_View sv);
 String_View sv_trim_right(String_View sv);
 String_View sv_trim(String_View sv);
 String_View sv_chop_by_delim(String_View *sv, char delim);
+
+#define BM_FILE_MAGIC 0X4D42
+#define BM_FILE_VERSION 1
+
+typedef struct {
+  uint16_t magic;
+  uint16_t version;
+  uint64_t program_size; 
+  uint64_t memory_size;
+  uint64_t memory_capacity;
+} PACKED Bm_File_Meta;
 
 typedef struct {
   String_View name;
@@ -1029,9 +1047,28 @@ void basm_save_to_file(Basm *basm, const char *output_file_path)
       fprintf(stderr, "ERROR: could not open file %s : %s\n", output_file_path, strerror(errno));
       exit(1);
     }
+
+    Bm_File_Meta meta = {
+        .magic = BM_FILE_MAGIC,
+        .version = BM_FILE_VERSION,
+        .program_size = basm->program_size,
+        .memory_size = basm->memory_size,
+        .memory_capacity = basm->memory_capacity,
+    };
   
-    fwrite(basm->program, sizeof(basm->program[0]), basm->program_size, f);
+    fwrite(&meta, sizeof(meta), 1, f);
+    if (ferror(f)) {
+      fprintf(stderr, "ERROR: could not write to file %s : %s\n", output_file_path, strerror(errno));
+      exit(1);
+    }
   
+    fwrite(basm->program, sizeof(basm->program[0]), basm->program_size, f);  
+    if (ferror(f)) {
+      fprintf(stderr, "ERROR: could not write to file %s : %s\n", output_file_path, strerror(errno));
+      exit(1);
+    }
+
+    fwrite(basm->memory, sizeof(basm->memory[0]), basm->memory_size, f);  
     if (ferror(f)) {
       fprintf(stderr, "ERROR: could not write to file %s : %s\n", output_file_path, strerror(errno));
       exit(1);
