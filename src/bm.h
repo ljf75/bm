@@ -161,7 +161,6 @@ Err bm_execute_inst(Bm *bm);
 Err bm_execute_program(Bm *bm, int limit);
 void bm_push_native(Bm *bm, Bm_Native native);
 void bm_dump_stack(FILE *stream, const Bm *bm);
-void bm_load_program_from_memory(Bm *bm, Inst *program, size_t program_size);
 void bm_load_program_from_file(Bm *bm, const char *file_path);
 void bm_save_program_to_file(const Bm *bm, const char *file_path);
 
@@ -834,13 +833,6 @@ void bm_dump_stack(FILE *stream, const Bm *bm)
    } else {
      fprintf(stream, "  [empty]\n");
    }
-}
-
-void bm_load_program_from_memory(Bm *bm, Inst *program, size_t program_size)
-{
-  assert(program_size < BM_PROGRAM_CAPACITY);
-  memcpy(bm->program, program, sizeof(program[0]) * program_size);
-  bm->program_size = program_size;
 }
 
 void bm_load_program_from_file(Bm *bm, const char *file_path)
