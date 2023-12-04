@@ -217,7 +217,8 @@ void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View name);
 void basm_save_to_file(Basm *basm, const char *output_file_path);
 void basm_translate_source(Basm *basm, String_View input_file_path, size_t level);
 
-bool basm_translate_literal(String_View sv, Word *output);
+Word basm_push_string_to_memory(Basm *basm, String_View sv);
+bool basm_translate_literal(Basm *basm, String_View sv, Word *output);
 
 #endif // __BM_H_
 
@@ -1026,26 +1027,50 @@ void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View name)
       (Defered_Operand) {.addr = addr, .name = name};
 }
 
-bool basm_translate_literal(String_View sv, Word *output)
+Word basm_push_string_to_memory(Basm *basm, String_View sv)
 {
-  assert(sv.count < 1024);
-  char cstr[sv.count + 1];
-  char *endptr = 0;
+  assert(basm->memory_size + sv.count <= BASM_MEMORY_CAPACITY);
 
-  memcpy(cstr, sv.data, sv.count);
-  cstr[sv.count] = '\0';
+  Word result = word_u64(basm->memory_size);
 
-  Word result = {0};
+  memcpy(basm->memory + basm->memory_size, sv.data, sv.count);
 
-  result.as_u64 = strtoull(cstr, &endptr, 10);
-  if ((size_t) (endptr - cstr) != sv.count) {
-     result.as_f64 = strtod(cstr, &endptr);
-     if ((size_t) (endptr - cstr) != sv.count) {
-       return false;
-     } 
-  } 
+  basm->memory_size += sv.count;
 
-  *output = result;
+  if (basm->memory_size > basm->memory_capacity) {
+       basm->memory_capacity = basm->memory_size;   
+  }
+  
+  return result;
+}
+
+bool basm_translate_literal(Basm *basm, String_View sv, Word *output)
+{
+  if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
+      sv.data += 1;
+      sv.count -= 2;  
+      *output = basm_push_string_to_memory(basm, sv);
+  } else {
+      assert(sv.count < 1024);
+      char cstr[sv.count + 1];
+      char *endptr = 0;
+  
+      memcpy(cstr, sv.data, sv.count);
+      cstr[sv.count] = '\0';
+  
+      Word result = {0};
+  
+      result.as_u64 = strtoull(cstr, &endptr, 10);
+      if ((size_t) (endptr - cstr) != sv.count) {
+         result.as_f64 = strtod(cstr, &endptr);
+         if ((size_t) (endptr - cstr) != sv.count) {
+           return false;
+         } 
+      } 
+  
+      *output = result;
+  }
+  
   return true;
 }
 
@@ -1108,9 +1133,9 @@ void basm_translate_source(Basm *basm, String_View input_file_path, size_t level
               String_View name = sv_chop_by_delim(&line, ' ');
               if (name.count > 0) {
                 line = sv_trim(line);
-                String_View value = sv_chop_by_delim(&line, ' ');
+                String_View value = line;//sv_chop_by_delim(&line, ' ');
                 Word word = {0};
-                if (!basm_translate_literal(value, &word)) {
+                if (!basm_translate_literal(basm, value, &word)) {
                   fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(value));
                    exit(1);
                 }
@@ -1180,7 +1205,7 @@ void basm_translate_source(Basm *basm, String_View input_file_path, size_t level
                      fprintf(stderr, "%.*s:%d: ERROR: instruction `%.*s` requires an operand\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
                      exit(1);
                    }
-                   if (!basm_translate_literal(operand, &basm->program[basm->program_size].operand)) {                
+                   if (!basm_translate_literal(basm, operand, &basm->program[basm->program_size].operand)) {                
                     basm_push_defered_operand(
                      basm, basm->program_size, operand);
                    }
