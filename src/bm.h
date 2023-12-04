@@ -9,6 +9,7 @@
 #include<errno.h>
 #include<ctype.h>
 #include<inttypes.h>
+#include<stdbool.h>
 
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof(xs[0]))
 #define BM_STACK_CAPACITY 1024
@@ -109,6 +110,11 @@ typedef union {
   void *as_ptr;
 } Word;
 
+Word word_u64(uint64_t u64);
+Word word_i64(int64_t i64);
+Word word_f64(double f64);
+Word word_ptr(void *ptr);
+
 static_assert(sizeof(Word) == 8, "The BM's Word is expected to be 64 bits");
 
 typedef struct {
@@ -171,8 +177,17 @@ typedef struct {
 typedef struct {
   Binding bindings[BASM_BINDINGS_CAPACITY];
   size_t bindings_size;
+
   Defered_Operand defered_operands[DEFERED_OPERANDS_CAPACITY];
   size_t defered_operands_size;
+
+  Inst program[BM_STACK_CAPACITY];
+  Inst_Addr program_size;
+  
+  uint8_t memory[BASM_ARENA_CAPACITY];
+  size_t memory_size;
+  size_t memory_capacity;
+
   char arena[BASM_ARENA_CAPACITY];
   size_t arena_size;
 } Basm;
@@ -183,13 +198,35 @@ int basm_resolve_binding(const Basm *basm, String_View name, Word *output);
 int basm_bind_value(Basm *basm, String_View name, Word word);
 void basm_push_defered_operand(Basm *basm, Inst_Addr addr, String_View name);
 
-void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_t level);
+void basm_save_to_file(Basm *basm, const char *output_file_path);
+void bm_translate_source(Basm *basm, String_View input_file_path, size_t level);
 
 int number_literal_as_word(String_View sv, Word *output);
 
 #endif // __BM_H_
 
 #ifdef BM_IMPLEMENTATION
+
+Word word_u64(uint64_t u64)
+{
+    return (Word) {.as_u64 = u64};
+}
+
+Word word_i64(int64_t i64)
+{
+    return (Word) {.as_i64 = i64};
+}
+
+Word word_f64(double f64)
+{
+    return (Word) {.as_f64 = f64};
+}
+
+Word word_ptr(void *ptr)
+{
+    return (Word) {.as_ptr = ptr};
+}
+
 
 int inst_has_operand(Inst_Type type)
 {
@@ -985,19 +1022,34 @@ int number_literal_as_word(String_View sv, Word *output)
   return 1;
 }
 
-void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_t level)
+void basm_save_to_file(Basm *basm, const char *output_file_path)
+{
+    FILE *f = fopen(output_file_path, "wb");
+    if (f == NULL) {
+      fprintf(stderr, "ERROR: could not open file %s : %s\n", output_file_path, strerror(errno));
+      exit(1);
+    }
+  
+    fwrite(basm->program, sizeof(basm->program[0]), basm->program_size, f);
+  
+    if (ferror(f)) {
+      fprintf(stderr, "ERROR: could not write to file %s : %s\n", output_file_path, strerror(errno));
+      exit(1);
+    }
+  
+    fclose(f);
+}
+
+void bm_translate_source(Basm *basm, String_View input_file_path, size_t level)
 {
    String_View original_source = basm_slurp_file(basm, input_file_path);
    String_View source = original_source;
   
-   bm->program_size = 0;
    int line_number = 0;
 
    // First pass
    while (source.count > 0) {
-     assert(bm->program_size < BM_PROGRAM_CAPACITY);
-     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
-     line_number += 1;
+     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));     line_number += 1;
      if (line.count > 0 && *line.data != BASM_COMMENT_SYMBOL) {
         String_View token = sv_trim(sv_chop_by_delim(&line, ' '));
 
@@ -1037,7 +1089,7 @@ void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_
                        exit(1);
                     }
                     
-                    bm_translate_source(bm, basm, line, level + 1);
+                    bm_translate_source(basm,  line, level + 1);
                   } else {
                     fprintf(stderr, "%.*s:%d: ERROR: include file path has to be surrounded with quotation marks\n", SV_FORMAT(input_file_path), line_number);
                      exit(1);
@@ -1059,7 +1111,7 @@ void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_
                  .data = token.data,
               };
 
-              if (!basm_bind_value(basm, name, (Word){.as_u64 = bm->program_size})) {
+              if (!basm_bind_value(basm, name, word_u64(basm->program_size))) {
                 // TODO: name redefinition does not tell where the name was already defined
                      fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
                       exit(1);
@@ -1074,19 +1126,20 @@ void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_
 
                Inst_Type inst_type = INST_NOP;
                if (inst_by_name(token, &inst_type)) {
-                 bm->program[bm->program_size].type = inst_type;
+                 assert(basm->program_size < BM_PROGRAM_CAPACITY);
+                 basm->program[basm->program_size].type = inst_type;
 
                  if (inst_has_operand(inst_type)) {
                    if (operand.count == 0) {
                      fprintf(stderr, "%.*s:%d: ERROR: instruction `%.*s` requires an operand\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
                      exit(1);
                    }
-                   if (!number_literal_as_word(operand, &bm->program[bm->program_size].operand)) {                
+                   if (!number_literal_as_word(operand, &basm->program[basm->program_size].operand)) {                
                     basm_push_defered_operand(
-                     basm, bm->program_size, operand);
+                     basm, basm->program_size, operand);
                    }
                  }
-                 bm->program_size += 1;
+                 basm->program_size += 1;
                } else {
                   fprintf(stderr, "%.*s:%d: ERROR: unknown instruction `%.*s`\n", SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
                   exit(1);
@@ -1102,7 +1155,7 @@ void bm_translate_source( Bm *bm, Basm *basm, String_View input_file_path, size_
         if (! basm_resolve_binding(
           basm,
           name,
-          &bm->program[basm->defered_operands[i].addr].operand)) {
+          &basm->program[basm->defered_operands[i].addr].operand)) {
                   // TODO: second pass resolutiion error
                   fprintf(stderr, "%.*s: ERROR: unknown name `%.*s`\n", SV_FORMAT(input_file_path), SV_FORMAT(name));
                   exit(1);
